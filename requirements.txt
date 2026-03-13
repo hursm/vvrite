@@ -1,0 +1,5 @@
+mlx-audio>=0.4.0
+sounddevice
+soundfile
+pyobjc-framework-Quartz
+pyobjc-framework-Cocoa

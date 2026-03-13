@@ -1,0 +1,11 @@
+build/
+dist/
+*.egg-info/
+.eggs/
+__pycache__/
+*.pyc
+.superpowers/
+
+# Code signing / notarization (contains team identity)
+scripts/build.sh
+CLAUDE.md
