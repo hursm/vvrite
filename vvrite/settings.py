@@ -50,6 +50,7 @@ class SettingsWindowController(NSObject):
             False,
         )
         self._window.setTitle_("Settings")
+        self._window.setReleasedWhenClosed_(False)
         self._window.center()
         self._window.setDelegate_(self)
 
