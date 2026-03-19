@@ -1,8 +1,15 @@
 """py2app build configuration for vvrite."""
+import os
 import sys
+
+ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 sys.setrecursionlimit(5000)
 
 from setuptools import setup
+from vvrite import APP_BUNDLE_IDENTIFIER
 
 APP = ["vvrite/main.py"]
 DATA_FILES = []
@@ -10,9 +17,9 @@ OPTIONS = {
     "argv_emulation": False,
     "plist": {
         "CFBundleName": "vvrite",
-        "CFBundleIdentifier": "com.vvrite.app",
-        "CFBundleShortVersionString": "1.0.0",  # keep in sync with vvrite/__init__.__version__
-        "CFBundleVersion": "1",
+        "CFBundleIdentifier": APP_BUNDLE_IDENTIFIER,
+        "CFBundleShortVersionString": "1.0.2",  # keep in sync with vvrite/__init__.__version__
+        "CFBundleVersion": "2",
         "LSUIElement": True,
         "NSMicrophoneUsageDescription": (
             "vvrite needs microphone access to record and transcribe your speech."
@@ -35,6 +42,7 @@ OPTIONS = {
         "AppKit",
         "Foundation",
         "ApplicationServices",
+        "ServiceManagement",
         "objc",
     ],
     "excludes": [

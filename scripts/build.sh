@@ -9,6 +9,34 @@ NOTARY_PROFILE="notarytool-profile"
 ZIP="dist/vvrite.zip"
 DMG="dist/vvrite.dmg"
 
+# ── Step 0: Preflight ───────────────────────────────────────────
+echo "▸ Checking build environment..."
+python - <<'PY'
+import importlib
+import sys
+
+required_modules = {
+    "ServiceManagement": "pyobjc-framework-ServiceManagement",
+}
+
+missing = []
+for module_name, package_name in required_modules.items():
+    try:
+        importlib.import_module(module_name)
+    except ImportError:
+        missing.append(f"{package_name} ({module_name})")
+
+if missing:
+    details = "\n".join(f"  - {item}" for item in missing)
+    raise SystemExit(
+        "Missing required Python bridge modules:\n"
+        f"{details}\n"
+        "Run `pip install -r requirements.txt` and retry."
+    )
+
+print("  ✓ Required Python bridge modules available")
+PY
+
 # ── Step 1: Build ──────────────────────────────────────────────
 echo "▸ Building with PyInstaller..."
 pyinstaller vvrite.spec --noconfirm

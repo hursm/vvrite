@@ -5,6 +5,7 @@ import sounddevice as sd
 import ApplicationServices
 from AppKit import (
     NSObject,
+    NSMakeRect,
     NSWindow,
     NSWindowStyleMaskTitled,
     NSWindowStyleMaskClosable,
@@ -17,9 +18,12 @@ from AppKit import (
     NSColor,
     NSApp,
     NSBezelStyleRounded,
+    NSAlert,
+    NSWorkspace,
 )
-from Foundation import NSMakeRect, NSLog, NSURL, NSWorkspace, NSTimer
+from Foundation import NSLog, NSURL, NSTimer
 
+from vvrite import launch_at_login
 from vvrite.preferences import Preferences
 from vvrite.widgets import ShortcutField
 
@@ -42,7 +46,7 @@ class SettingsWindowController(NSObject):
         return self
 
     def _build_window(self):
-        frame = NSMakeRect(0, 0, 400, 500)
+        frame = NSMakeRect(0, 0, 400, 486)
         self._window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             frame,
             NSWindowStyleMaskTitled | NSWindowStyleMaskClosable,
@@ -55,7 +59,7 @@ class SettingsWindowController(NSObject):
         self._window.setDelegate_(self)
 
         content = self._window.contentView()
-        y = 460
+        y = 472
 
         # --- Shortcut ---
         y -= 30
@@ -173,7 +177,7 @@ class SettingsWindowController(NSObject):
         content.addSubview_(self._login_checkbox)
 
         # --- Automatically check for updates ---
-        y -= 30
+        y -= 34
         self._update_checkbox = NSButton.alloc().initWithFrame_(NSMakeRect(20, y, 360, 20))
         self._update_checkbox.setButtonType_(NSButtonTypeSwitch)
         self._update_checkbox.setTitle_("Automatically check for updates")
@@ -183,6 +187,7 @@ class SettingsWindowController(NSObject):
         content.addSubview_(self._update_checkbox)
 
         self._update_permissions()
+        self._refresh_login_checkbox()
 
     def _populate_mics(self):
         self._mic_popup.removeAllItems()
@@ -218,9 +223,15 @@ class SettingsWindowController(NSObject):
         return self._window
 
     def windowWillClose_(self, notification):
+        self._save_custom_words()
         if self._permission_timer:
             self._permission_timer.invalidate()
             self._permission_timer = None
+
+    def _save_custom_words(self):
+        if self._custom_words_field is None:
+            return
+        self._prefs.custom_words = self._custom_words_field.stringValue()
 
     @objc.typedSelector(b"v@:@")
     def pollPermissions_(self, timer):
@@ -241,18 +252,14 @@ class SettingsWindowController(NSObject):
     @objc.typedSelector(b"v@:@")
     def loginToggled_(self, sender):
         enabled = sender.state() == 1
-        self._prefs.launch_at_login = enabled
         try:
-            from ServiceManagement import SMAppService
-            service = SMAppService.mainApp()
-            if enabled:
-                success, error = service.registerAndReturnError_(None)
-            else:
-                success, error = service.unregisterAndReturnError_(None)
-            if not success:
-                NSLog(f"Launch at login toggle failed: {error}")
-        except Exception as e:
+            actual_state = launch_at_login.set_enabled(enabled)
+            self._prefs.launch_at_login = actual_state
+        except launch_at_login.LaunchAtLoginError as e:
             NSLog(f"Launch at login toggle failed: {e}")
+            self._show_launch_at_login_error(str(e))
+        finally:
+            self._refresh_login_checkbox()
 
     @objc.typedSelector(b"v@:@")
     def updateCheckToggled_(self, sender):
@@ -261,7 +268,7 @@ class SettingsWindowController(NSObject):
     def controlTextDidEndEditing_(self, notification):
         field = notification.object()
         if field == self._custom_words_field:
-            self._prefs.custom_words = self._custom_words_field.stringValue()
+            self._save_custom_words()
 
     @objc.typedSelector(b"v@:@")
     def openAccessibility_(self, sender):
@@ -276,3 +283,24 @@ class SettingsWindowController(NSObject):
             "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
         )
         NSWorkspace.sharedWorkspace().openURL_(url)
+
+    def _refresh_login_checkbox(self):
+        if self._login_checkbox is None:
+            return
+
+        support_error = launch_at_login.support_error()
+        if support_error:
+            self._login_checkbox.setEnabled_(False)
+            self._login_checkbox.setState_(1 if self._prefs.launch_at_login else 0)
+            return
+
+        self._login_checkbox.setEnabled_(True)
+        actual_state = launch_at_login.is_registered()
+        self._prefs.launch_at_login = actual_state
+        self._login_checkbox.setState_(1 if actual_state else 0)
+
+    def _show_launch_at_login_error(self, message):
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_("Launch at login could not be updated")
+        alert.setInformativeText_(message)
+        alert.runModal()

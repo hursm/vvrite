@@ -7,6 +7,7 @@ import ApplicationServices
 import AVFoundation
 from AppKit import (
     NSObject,
+    NSMakeRect,
     NSWindow,
     NSWindowStyleMaskTitled,
     NSWindowStyleMaskClosable,
@@ -22,8 +23,9 @@ from AppKit import (
     NSImageView,
     NSProgressIndicator,
     NSProgressIndicatorStyleBar,
+    NSWorkspace,
 )
-from Foundation import NSMakeRect, NSLog, NSURL, NSWorkspace, NSTimer
+from Foundation import NSLog, NSURL, NSTimer
 
 from vvrite.widgets import ShortcutField
 from vvrite import transcriber

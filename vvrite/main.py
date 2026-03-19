@@ -16,12 +16,13 @@ from AppKit import (
     NSApplicationActivationPolicyAccessory,
     NSAlert,
     NSAlertFirstButtonReturn,
+    NSWorkspace,
 )
 from AppKit import NSTimer
-from Foundation import NSLog
+from Foundation import NSLog, NSURL
 import ApplicationServices
 
-from vvrite import __version__
+from vvrite import __version__, APP_BUNDLE_IDENTIFIER
 from vvrite.preferences import Preferences
 from vvrite.status_bar import StatusBarController
 from vvrite.hotkey import HotkeyManager
@@ -391,12 +392,7 @@ class AppDelegate(NSObject):
                 ).start()
             else:
                 # No downloadable asset — open release page in browser
-                from Foundation import NSURL, NSWorkspace
-                html_url = release.get("html_url", "")
-                if html_url:
-                    NSWorkspace.sharedWorkspace().openURL_(
-                        NSURL.URLWithString_(html_url)
-                    )
+                self._open_external_url(updater.release_page_url(release))
 
     def _download_update(self, asset):
         """Background: download asset to temp dir, then open it."""
@@ -412,13 +408,29 @@ class AppDelegate(NSObject):
             )
         except Exception as e:
             NSLog(f"Update download failed: {e}")
+            release = self._available_update[1] if self._available_update else None
+            fallback_url = updater.release_page_url(release)
+            self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                "openExternalURL:", fallback_url, False
+            )
+
+    def _open_external_url(self, url: str) -> bool:
+        if not url:
+            return False
+        ns_url = NSURL.URLWithString_(url)
+        if ns_url is None:
+            return False
+        return bool(NSWorkspace.sharedWorkspace().openURL_(ns_url))
 
     @objc.typedSelector(b"v@:@")
     def updateDownloadComplete_(self, path):
         """Main thread: open downloaded .dmg/.zip in Finder."""
-        from Foundation import NSURL, NSWorkspace
         url = NSURL.fileURLWithPath_(str(path))
         NSWorkspace.sharedWorkspace().openURL_(url)
+
+    @objc.typedSelector(b"v@:@")
+    def openExternalURL_(self, url):
+        self._open_external_url(str(url))
 
     def openSettings(self):
         from vvrite.settings import SettingsWindowController
@@ -432,8 +444,9 @@ class AppDelegate(NSObject):
 def main():
     # Single-instance check: exit immediately if already running
     from AppKit import NSRunningApplication, NSWorkspace
-    bundle_id = "com.vvrite.app"
-    running = NSRunningApplication.runningApplicationsWithBundleIdentifier_(bundle_id)
+    running = NSRunningApplication.runningApplicationsWithBundleIdentifier_(
+        APP_BUNDLE_IDENTIFIER
+    )
     my_pid = os.getpid()
     for r in running:
         if r.processIdentifier() != my_pid:

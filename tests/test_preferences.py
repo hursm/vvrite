@@ -2,13 +2,23 @@
 import unittest
 from Foundation import NSUserDefaults
 
+from vvrite.preferences import APP_DEFAULTS_DOMAIN
 
-# Keys that tests may modify — cleaned up before each test
 _TEST_KEYS = [
-    "hotkey_keycode", "hotkey_modifiers", "mic_device",
-    "model_id", "max_tokens", "launch_at_login", "sound_start", "sound_stop",
-    "onboarding_completed", "custom_words", "auto_update_check", "last_update_check",
+    "hotkey_keycode",
+    "hotkey_modifiers",
+    "mic_device",
+    "model_id",
+    "max_tokens",
+    "launch_at_login",
+    "sound_start",
+    "sound_stop",
+    "onboarding_completed",
+    "custom_words",
+    "auto_update_check",
+    "last_update_check",
 ]
+_LEGACY_DOMAINS = ["com.vvrite.app", "python3", "python", "Python"]
 
 
 class TestPreferences(unittest.TestCase):
@@ -16,11 +26,17 @@ class TestPreferences(unittest.TestCase):
         defaults = NSUserDefaults.standardUserDefaults()
         for key in _TEST_KEYS:
             defaults.removeObjectForKey_(key)
+        defaults.removePersistentDomainForName_(APP_DEFAULTS_DOMAIN)
+        for domain in _LEGACY_DOMAINS:
+            defaults.removePersistentDomainForName_(domain)
 
     def tearDown(self):
         defaults = NSUserDefaults.standardUserDefaults()
         for key in _TEST_KEYS:
             defaults.removeObjectForKey_(key)
+        defaults.removePersistentDomainForName_(APP_DEFAULTS_DOMAIN)
+        for domain in _LEGACY_DOMAINS:
+            defaults.removePersistentDomainForName_(domain)
 
     def test_default_hotkey_keycode(self):
         from vvrite.preferences import Preferences
@@ -100,6 +116,36 @@ class TestPreferences(unittest.TestCase):
         prefs = Preferences()
         prefs.custom_words = "MLX, Qwen, vvrite"
         self.assertEqual(prefs.custom_words, "MLX, Qwen, vvrite")
+
+    def test_custom_words_persist_across_instances(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        prefs.custom_words = "MLX, Qwen, vvrite"
+
+        reloaded = Preferences()
+        self.assertEqual(reloaded.custom_words, "MLX, Qwen, vvrite")
+
+    def test_migrates_custom_words_from_legacy_python_domain(self):
+        defaults = NSUserDefaults.standardUserDefaults()
+        defaults.setPersistentDomain_forName_(
+            {"custom_words": "legacy term"}, "python3"
+        )
+
+        from vvrite.preferences import Preferences
+
+        prefs = Preferences()
+        self.assertEqual(prefs.custom_words, "legacy term")
+
+    def test_migrates_custom_words_from_old_bundle_identifier(self):
+        defaults = NSUserDefaults.standardUserDefaults()
+        defaults.setPersistentDomain_forName_(
+            {"custom_words": "old bundle term"}, "com.vvrite.app"
+        )
+
+        from vvrite.preferences import Preferences
+
+        prefs = Preferences()
+        self.assertEqual(prefs.custom_words, "old bundle term")
 
     def test_default_auto_update_check(self):
         from vvrite.preferences import Preferences

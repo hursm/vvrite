@@ -1,7 +1,13 @@
 """PyInstaller spec for vvrite macOS app."""
 import os
 import sys
+
+ROOT_DIR = os.path.abspath(os.getcwd())
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 from PyInstaller.utils.hooks import collect_submodules
+from vvrite import APP_BUNDLE_IDENTIFIER
 
 block_cipher = None
 
@@ -17,6 +23,7 @@ pyobjc_hiddenimports = (
     + collect_submodules("Quartz")
     + collect_submodules("ApplicationServices")
     + collect_submodules("AVFoundation")
+    + collect_submodules("ServiceManagement")
 )
 
 a = Analysis(
@@ -107,11 +114,11 @@ app = BUNDLE(
     coll,
     name="vvrite.app",
     icon="assets/vvrite.icns",
-    bundle_identifier="com.vvrite.app",
+    bundle_identifier=APP_BUNDLE_IDENTIFIER,
     info_plist={
         "CFBundleName": "vvrite",
-        "CFBundleShortVersionString": "1.0.0",  # keep in sync with vvrite/__init__.__version__
-        "CFBundleVersion": "1",
+        "CFBundleShortVersionString": "1.0.2",  # keep in sync with vvrite/__init__.__version__
+        "CFBundleVersion": "2",
         "LSUIElement": True,
         "NSMicrophoneUsageDescription": (
             "vvrite needs microphone access to record and transcribe your speech."

@@ -3,3 +3,4 @@ sounddevice
 soundfile
 pyobjc-framework-Quartz
 pyobjc-framework-Cocoa
+pyobjc-framework-ServiceManagement

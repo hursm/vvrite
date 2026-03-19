@@ -6,6 +6,7 @@ import urllib.request
 import urllib.error
 
 GITHUB_API_URL = "https://api.github.com/repos/shaircast/vvrite/releases/latest"
+REPOSITORY_URL = "https://github.com/shaircast/vvrite"
 REQUEST_TIMEOUT = 15
 COOLDOWN_SECONDS = 86400  # 24 hours
 
@@ -55,6 +56,18 @@ def find_dmg_asset(release: dict) -> dict | None:
         if name.endswith(".zip") and zip_asset is None:
             zip_asset = asset
     return dmg or zip_asset
+
+
+def release_page_url(release: dict | None) -> str:
+    """Return the best browser URL for a release, falling back to the repo."""
+    if not isinstance(release, dict):
+        return REPOSITORY_URL
+
+    html_url = release.get("html_url", "")
+    if isinstance(html_url, str) and html_url.strip():
+        return html_url.strip()
+
+    return REPOSITORY_URL
 
 
 def download_asset(url: str, destination: str) -> str:

@@ -1,15 +1,19 @@
 """Qwen3 ASR transcription using mlx-audio."""
 
 import os
+import tempfile
 
+import numpy as np
+import soundfile as sf
 from huggingface_hub import model_info, snapshot_download
 from mlx_audio.stt.utils import load_model
 
-from vvrite.preferences import Preferences
+from vvrite.preferences import Preferences, SAMPLE_RATE
 from vvrite import audio_utils
 
 
 _model = None
+_warmed_up = False
 
 
 def is_model_loaded() -> bool:
@@ -42,19 +46,54 @@ def download_model(model_id: str) -> str:
 
 def load_from_local(local_path: str):
     """Load model from a local directory into memory."""
-    global _model
+    global _model, _warmed_up
     _model = load_model(local_path)
+    _warmed_up = False
+    _safe_warm_up()
 
 
 def load(prefs: Preferences = None):
     """Download + load in one step. Used by existing non-onboarding flow."""
-    global _model
+    global _model, _warmed_up
     if prefs is None:
         prefs = Preferences()
     model_id = prefs.model_id
     print(f"Loading model: {model_id} ...")
     _model = load_model(model_id)
+    _warmed_up = False
+    _safe_warm_up()
     print("Model loaded.")
+
+
+def _create_warmup_audio() -> str:
+    fd, path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
+    sf.write(path, np.zeros(SAMPLE_RATE // 2, dtype=np.float32), SAMPLE_RATE)
+    return path
+
+
+def warm_up():
+    """Run a tiny silent transcription to trigger first-use compilation work."""
+    global _warmed_up
+    if _model is None or _warmed_up:
+        return
+
+    warmup_path = _create_warmup_audio()
+    try:
+        _model.generate(warmup_path, max_tokens=1)
+        _warmed_up = True
+    finally:
+        try:
+            os.unlink(warmup_path)
+        except OSError:
+            pass
+
+
+def _safe_warm_up():
+    try:
+        warm_up()
+    except Exception as e:
+        print(f"Model warm-up skipped: {e}")
 
 
 def transcribe(raw_wav_path: str, prefs: Preferences = None) -> str:

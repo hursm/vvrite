@@ -7,6 +7,7 @@ import time
 import objc
 from AppKit import (
     NSObject,
+    NSMakeRect,
     NSPanel,
     NSColor,
     NSView,
@@ -28,7 +29,6 @@ from AppKit import (
     NSWorkspace,
     NSEvent,
 )
-from Foundation import NSMakeRect
 from Quartz import (
     CGWindowListCopyWindowInfo,
     kCGWindowListOptionOnScreenOnly,

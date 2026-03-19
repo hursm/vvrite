@@ -1,7 +1,12 @@
 """User preferences backed by NSUserDefaults."""
 
-from Foundation import NSUserDefaults
+from Foundation import NSBundle, NSProcessInfo, NSUserDefaults
 from Quartz import kCGEventFlagMaskAlternate
+
+from vvrite import APP_BUNDLE_IDENTIFIER
+
+APP_DEFAULTS_DOMAIN = APP_BUNDLE_IDENTIFIER
+_LEGACY_DEFAULTS_DOMAINS = ("com.vvrite.app", "python3", "python")
 
 _DEFAULTS = {
     "hotkey_keycode": 0x31,  # Space
@@ -18,6 +23,8 @@ _DEFAULTS = {
     "last_update_check": 0.0,
 }
 
+_PREFERENCE_KEYS = tuple(_DEFAULTS.keys()) + ("mic_device",)
+
 # Hard-coded constants (not user-configurable)
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -31,6 +38,52 @@ class Preferences:
     def __init__(self):
         self._defaults = NSUserDefaults.standardUserDefaults()
         self._defaults.registerDefaults_(_DEFAULTS)
+        self._migrate_legacy_defaults_if_needed()
+
+    def _migrate_legacy_defaults_if_needed(self):
+        """Move values saved by older source runs into the current defaults domain."""
+        standard_defaults = NSUserDefaults.standardUserDefaults()
+        migrated = False
+
+        for domain_name in _LEGACY_DEFAULTS_DOMAINS:
+            domain = standard_defaults.persistentDomainForName_(domain_name)
+            if not domain:
+                continue
+
+            for key in _PREFERENCE_KEYS:
+                if self._has_persisted_value(key):
+                    continue
+
+                value = domain.objectForKey_(key)
+                if value is None:
+                    continue
+
+                self._defaults.setObject_forKey_(value, key)
+                migrated = True
+
+        if migrated:
+            self._defaults.synchronize()
+
+    def _has_persisted_value(self, key: str) -> bool:
+        """Return True when the current defaults domain already stores key."""
+        bundle_identifier = NSBundle.mainBundle().bundleIdentifier()
+        process_name = NSProcessInfo.processInfo().processName()
+        candidate_domains = []
+
+        for name in (
+            bundle_identifier,
+            process_name,
+            process_name.lower() if process_name else None,
+        ):
+            if name and name not in candidate_domains:
+                candidate_domains.append(name)
+
+        for domain_name in candidate_domains:
+            domain = self._defaults.persistentDomainForName_(domain_name)
+            if domain and domain.objectForKey_(key) is not None:
+                return True
+
+        return False
 
     def _get(self, key):
         val = self._defaults.objectForKey_(key)
