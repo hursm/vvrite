@@ -29,7 +29,7 @@ from vvrite.overlay import OverlayController
 from vvrite.onboarding import OnboardingWindowController
 from vvrite import transcriber, sounds, updater
 from vvrite.recorder import Recorder
-from vvrite.clipboard import paste_and_restore
+from vvrite.clipboard import paste_and_restore, retract_text
 
 
 class AppDelegate(NSObject):
@@ -48,6 +48,7 @@ class AppDelegate(NSObject):
         self._load_retries = 0
         self._onboarding_wc = None
         self._available_update = None  # (tag, release) tuple when update found
+        self._last_dictation_text = None
         return self
 
     def applicationDidFinishLaunching_(self, notification):
@@ -245,6 +246,7 @@ class AppDelegate(NSObject):
             text = transcriber.transcribe(raw_path, self._prefs)
             if text:
                 paste_and_restore(text)
+                self._last_dictation_text = text
                 self.performSelectorOnMainThread_withObject_waitUntilDone_(
                     "transcriptionComplete:", text, False
                 )
@@ -312,6 +314,18 @@ class AppDelegate(NSObject):
         self._overlay.dismiss()
         self._status_bar.setStatus_("Ready")
         self._status_bar.setRecording_(False)
+
+    def retractLastDictation(self):
+        text = self._last_dictation_text
+        if (
+            not self._prefs.retract_last_dictation_enabled
+            or not text
+            or self._recording
+        ):
+            return
+
+        if retract_text(text):
+            self._last_dictation_text = None
 
     # --- Update check ---
 

@@ -15,6 +15,7 @@ from AppKit import (
     NSTextField,
     NSFont,
     NSButton,
+    NSButtonTypeSwitch,
     NSColor,
     NSApp,
     NSBezelStyleRounded,
@@ -38,8 +39,9 @@ _HEIGHT = 300
 _WELCOME = 0
 _PERMISSIONS = 1
 _HOTKEY = 2
-_MODEL = 3
-_NUM_STEPS = 4
+_RETRACT = 3
+_MODEL = 4
+_NUM_STEPS = 5
 
 
 class OnboardingWindowController(NSObject):
@@ -58,6 +60,9 @@ class OnboardingWindowController(NSObject):
         self._next_btn = None
         self._permission_timer = None
         self._shortcut_field = None
+        self._retract_checkbox = None
+        self._retract_shortcut_field = None
+        self._retract_change_btn = None
         self._progress_bar = None
         self._progress_label = None
         self._size_label = None
@@ -148,6 +153,7 @@ class OnboardingWindowController(NSObject):
             _WELCOME: self._build_welcome,
             _PERMISSIONS: self._build_permissions,
             _HOTKEY: self._build_hotkey,
+            _RETRACT: self._build_retract,
             _MODEL: self._build_model,
         }
         builders[step]()
@@ -169,6 +175,7 @@ class OnboardingWindowController(NSObject):
             _WELCOME: "Get Started",
             _PERMISSIONS: "Next",
             _HOTKEY: "Next",
+            _RETRACT: "Next",
             _MODEL: "Done",
         }
         self._next_btn.setTitle_(labels[self._step])
@@ -386,7 +393,92 @@ class OnboardingWindowController(NSObject):
     def changeShortcut_(self, sender):
         self._shortcut_field.startCapture()
 
-    # --- Step 4: Model Download ---
+    # --- Step 4: Retract ---
+
+    def _build_retract(self):
+        area = self._content_area
+        w = _WIDTH
+
+        title = NSTextField.labelWithString_("Quick Correction")
+        title.setFrame_(NSMakeRect(0, 170, w, 24))
+        title.setFont_(NSFont.boldSystemFontOfSize_(16.0))
+        title.setAlignment_(1)
+        area.addSubview_(title)
+
+        subtitle = NSTextField.labelWithString_(
+            "Optionally remove the last dictation with a global shortcut"
+        )
+        subtitle.setFrame_(NSMakeRect(20, 144, w - 40, 32))
+        subtitle.setFont_(NSFont.systemFontOfSize_(12.0))
+        subtitle.setTextColor_(NSColor.secondaryLabelColor())
+        subtitle.setAlignment_(1)
+        area.addSubview_(subtitle)
+
+        self._retract_checkbox = NSButton.alloc().initWithFrame_(
+            NSMakeRect(60, 100, w - 120, 20)
+        )
+        self._retract_checkbox.setButtonType_(NSButtonTypeSwitch)
+        self._retract_checkbox.setTitle_("Enable retract last dictation shortcut")
+        self._retract_checkbox.setState_(
+            1 if self._prefs.retract_last_dictation_enabled else 0
+        )
+        self._retract_checkbox.setTarget_(self)
+        self._retract_checkbox.setAction_("retractShortcutToggled:")
+        area.addSubview_(self._retract_checkbox)
+
+        self._retract_shortcut_field = (
+            ShortcutField.alloc().initWithFrame_preferences_keycodeKey_modifiersKey_(
+                NSMakeRect((w - 200) / 2, 62, 200, 32),
+                self._prefs,
+                "retract_hotkey_keycode",
+                "retract_hotkey_modifiers",
+            )
+        )
+        self._retract_shortcut_field.setFont_(
+            NSFont.monospacedSystemFontOfSize_weight_(18.0, 0.5)
+        )
+        self._retract_shortcut_field.setAlignment_(1)
+        area.addSubview_(self._retract_shortcut_field)
+
+        self._retract_change_btn = NSButton.alloc().initWithFrame_(
+            NSMakeRect((w - 80) / 2, 28, 80, 24)
+        )
+        self._retract_change_btn.setTitle_("Change")
+        self._retract_change_btn.setBezelStyle_(NSBezelStyleRounded)
+        self._retract_change_btn.setTarget_(self)
+        self._retract_change_btn.setAction_("changeRetractShortcut:")
+        area.addSubview_(self._retract_change_btn)
+
+        hint = NSTextField.labelWithString_(
+            "Works once for the most recent dictation result"
+        )
+        hint.setFrame_(NSMakeRect(20, 8, w - 40, 16))
+        hint.setFont_(NSFont.systemFontOfSize_(11.0))
+        hint.setTextColor_(NSColor.secondaryLabelColor())
+        hint.setAlignment_(1)
+        area.addSubview_(hint)
+
+        self._refresh_retract_controls()
+
+    @objc.typedSelector(b"v@:@")
+    def retractShortcutToggled_(self, sender):
+        self._prefs.retract_last_dictation_enabled = sender.state() == 1
+        self._refresh_retract_controls()
+
+    @objc.typedSelector(b"v@:@")
+    def changeRetractShortcut_(self, sender):
+        self._retract_shortcut_field.startCapture()
+
+    def _refresh_retract_controls(self):
+        enabled = bool(self._prefs.retract_last_dictation_enabled)
+        if self._retract_checkbox is not None:
+            self._retract_checkbox.setState_(1 if enabled else 0)
+        if self._retract_shortcut_field is not None:
+            self._retract_shortcut_field.setEnabled_(enabled)
+        if self._retract_change_btn is not None:
+            self._retract_change_btn.setEnabled_(enabled)
+
+    # --- Step 5: Model Download ---
 
     def _build_model(self):
         area = self._content_area

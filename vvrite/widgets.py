@@ -26,6 +26,7 @@ _KEY_MAP = {
     0x1A: "7", 0x1B: "-", 0x1C: "8", 0x1D: "0", 0x1F: "O",
     0x20: "U", 0x22: "I", 0x23: "P", 0x25: "L", 0x26: "J",
     0x28: "K", 0x2C: "/", 0x2D: "N", 0x2E: "M", 0x31: "Space",
+    0x33: "Delete",
 }
 
 
@@ -49,10 +50,26 @@ class ShortcutField(NSTextField):
     """Text field that captures key combinations."""
 
     def initWithFrame_preferences_(self, frame, prefs):
+        return self.initWithFrame_preferences_keycodeKey_modifiersKey_(
+            frame,
+            prefs,
+            "hotkey_keycode",
+            "hotkey_modifiers",
+        )
+
+    def initWithFrame_preferences_keycodeKey_modifiersKey_(
+        self,
+        frame,
+        prefs,
+        keycode_key,
+        modifiers_key,
+    ):
         self = objc.super(ShortcutField, self).initWithFrame_(frame)
         if self is None:
             return None
         self._prefs = prefs
+        self._keycode_key = str(keycode_key)
+        self._modifiers_key = str(modifiers_key)
         self._capturing = False
         self.setEditable_(False)
         self.setSelectable_(False)
@@ -65,9 +82,9 @@ class ShortcutField(NSTextField):
         if self._capturing:
             self.setStringValue_("Press shortcut...")
         else:
-            self.setStringValue_(
-                format_shortcut(self._prefs.hotkey_keycode, self._prefs.hotkey_modifiers)
-            )
+            keycode = getattr(self._prefs, self._keycode_key)
+            modifiers = getattr(self._prefs, self._modifiers_key)
+            self.setStringValue_(format_shortcut(keycode, modifiers))
 
     def startCapture(self):
         self._capturing = True
@@ -99,8 +116,8 @@ class ShortcutField(NSTextField):
         if not cg_flags:
             return
 
-        self._prefs.hotkey_keycode = keycode
-        self._prefs.hotkey_modifiers = int(cg_flags)
+        setattr(self._prefs, self._keycode_key, keycode)
+        setattr(self._prefs, self._modifiers_key, int(cg_flags))
         self._capturing = False
         self._update_display()
 

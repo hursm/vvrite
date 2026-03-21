@@ -1,7 +1,11 @@
 """User preferences backed by NSUserDefaults."""
 
 from Foundation import NSBundle, NSProcessInfo, NSUserDefaults
-from Quartz import kCGEventFlagMaskAlternate
+from Quartz import (
+    kCGEventFlagMaskAlternate,
+    kCGEventFlagMaskControl,
+    kCGEventFlagMaskShift,
+)
 
 from vvrite import APP_BUNDLE_IDENTIFIER
 
@@ -11,6 +15,9 @@ _LEGACY_DEFAULTS_DOMAINS = ("com.vvrite.app", "python3", "python")
 _DEFAULTS = {
     "hotkey_keycode": 0x31,  # Space
     "hotkey_modifiers": int(kCGEventFlagMaskAlternate),
+    "retract_last_dictation_enabled": False,
+    "retract_hotkey_keycode": 0x06,  # Z
+    "retract_hotkey_modifiers": int(kCGEventFlagMaskAlternate | kCGEventFlagMaskShift),
     # mic_device intentionally omitted — None/absent means system default
     "model_id": "mlx-community/Qwen3-ASR-1.7B-8bit",
     "max_tokens": 128000,
@@ -112,6 +119,30 @@ class Preferences:
     @hotkey_modifiers.setter
     def hotkey_modifiers(self, value: int):
         self._set("hotkey_modifiers", value)
+
+    @property
+    def retract_last_dictation_enabled(self) -> bool:
+        return bool(self._get("retract_last_dictation_enabled"))
+
+    @retract_last_dictation_enabled.setter
+    def retract_last_dictation_enabled(self, value: bool):
+        self._set("retract_last_dictation_enabled", value)
+
+    @property
+    def retract_hotkey_keycode(self) -> int:
+        return int(self._get("retract_hotkey_keycode"))
+
+    @retract_hotkey_keycode.setter
+    def retract_hotkey_keycode(self, value: int):
+        self._set("retract_hotkey_keycode", value)
+
+    @property
+    def retract_hotkey_modifiers(self) -> int:
+        return int(self._get("retract_hotkey_modifiers"))
+
+    @retract_hotkey_modifiers.setter
+    def retract_hotkey_modifiers(self, value: int):
+        self._set("retract_hotkey_modifiers", value)
 
     @property
     def mic_device(self) -> str | None:

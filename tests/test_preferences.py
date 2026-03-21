@@ -7,6 +7,9 @@ from vvrite.preferences import APP_DEFAULTS_DOMAIN
 _TEST_KEYS = [
     "hotkey_keycode",
     "hotkey_modifiers",
+    "retract_last_dictation_enabled",
+    "retract_hotkey_keycode",
+    "retract_hotkey_modifiers",
     "mic_device",
     "model_id",
     "max_tokens",
@@ -55,6 +58,22 @@ class TestPreferences(unittest.TestCase):
         prefs = Preferences()
         self.assertIsNone(prefs.mic_device)
 
+    def test_default_retract_last_dictation_enabled(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        self.assertFalse(prefs.retract_last_dictation_enabled)
+
+    def test_default_retract_hotkey(self):
+        from vvrite.preferences import Preferences
+        from Quartz import kCGEventFlagMaskAlternate, kCGEventFlagMaskShift
+
+        prefs = Preferences()
+        self.assertEqual(prefs.retract_hotkey_keycode, 0x06)
+        self.assertEqual(
+            prefs.retract_hotkey_modifiers,
+            int(kCGEventFlagMaskAlternate | kCGEventFlagMaskShift),
+        )
+
     def test_default_max_tokens(self):
         from vvrite.preferences import Preferences
         prefs = Preferences()
@@ -87,6 +106,17 @@ class TestPreferences(unittest.TestCase):
         prefs = Preferences()
         prefs.mic_device = "Blue Yeti"
         self.assertEqual(prefs.mic_device, "Blue Yeti")
+
+    def test_set_retract_preferences(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        prefs.retract_last_dictation_enabled = True
+        prefs.retract_hotkey_keycode = 0x06  # Z
+        prefs.retract_hotkey_modifiers = 1 << 20
+
+        self.assertTrue(prefs.retract_last_dictation_enabled)
+        self.assertEqual(prefs.retract_hotkey_keycode, 0x06)
+        self.assertEqual(prefs.retract_hotkey_modifiers, 1 << 20)
 
     def test_set_mic_device_to_none(self):
         from vvrite.preferences import Preferences

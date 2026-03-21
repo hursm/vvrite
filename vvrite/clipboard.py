@@ -15,6 +15,7 @@ from Quartz import (
 from vvrite.preferences import CLIPBOARD_RESTORE_DELAY
 
 kVK_ANSI_V = 0x09
+kVK_Delete = 0x33
 
 
 def backup() -> list:
@@ -57,14 +58,23 @@ def _set_text(text: str):
     pb.setString_forType_(text, NSPasteboardTypeString)
 
 
-def _simulate_cmd_v():
+def _post_keypress(keycode: int, flags: int = 0):
     source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState)
-    down = CGEventCreateKeyboardEvent(source, kVK_ANSI_V, True)
-    up = CGEventCreateKeyboardEvent(source, kVK_ANSI_V, False)
-    CGEventSetFlags(down, kCGEventFlagMaskCommand)
-    CGEventSetFlags(up, kCGEventFlagMaskCommand)
+    down = CGEventCreateKeyboardEvent(source, keycode, True)
+    up = CGEventCreateKeyboardEvent(source, keycode, False)
+    CGEventSetFlags(down, flags)
+    CGEventSetFlags(up, flags)
     CGEventPost(kCGHIDEventTap, down)
     CGEventPost(kCGHIDEventTap, up)
+
+
+def _simulate_cmd_v():
+    _post_keypress(kVK_ANSI_V, kCGEventFlagMaskCommand)
+
+
+def _simulate_delete_backward(repeat_count: int):
+    for _ in range(max(0, repeat_count)):
+        _post_keypress(kVK_Delete)
 
 
 def paste_and_restore(text: str):
@@ -75,3 +85,12 @@ def paste_and_restore(text: str):
     _simulate_cmd_v()
     time.sleep(CLIPBOARD_RESTORE_DELAY)
     restore(saved)
+
+
+def retract_text(text: str) -> bool:
+    """Delete a previously inserted text block by sending Delete keypresses."""
+    if not text:
+        return False
+
+    _simulate_delete_backward(len(text))
+    return True

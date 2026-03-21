@@ -71,10 +71,24 @@ class HotkeyManager:
 
             target_keycode = self._prefs.hotkey_keycode
             target_mods = self._prefs.hotkey_modifiers
+            retract_enabled = self._prefs.retract_last_dictation_enabled
+            retract_keycode = self._prefs.retract_hotkey_keycode
+            retract_mods = self._prefs.retract_hotkey_modifiers
 
             if keycode == target_keycode and (flags & MODIFIER_MASK) == target_mods:
                 threading.Thread(
                     target=self._delegate.toggleRecording,
+                    daemon=True,
+                ).start()
+                return None
+
+            if (
+                retract_enabled
+                and keycode == retract_keycode
+                and (flags & MODIFIER_MASK) == retract_mods
+            ):
+                threading.Thread(
+                    target=self._delegate.retractLastDictation,
                     daemon=True,
                 ).start()
                 return None

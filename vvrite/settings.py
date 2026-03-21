@@ -43,6 +43,9 @@ class SettingsWindowController(NSObject):
         self._acc_label = None
         self._mic_label = None
         self._shortcut_field = None
+        self._retract_checkbox = None
+        self._retract_shortcut_field = None
+        self._retract_change_btn = None
         self._mic_popup = None
         self._mic_device_ids = [None]
         self._login_checkbox = None
@@ -51,7 +54,7 @@ class SettingsWindowController(NSObject):
         return self
 
     def _build_window(self):
-        frame = NSMakeRect(0, 0, 400, 486)
+        frame = NSMakeRect(0, 0, 400, 586)
         self._window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             frame,
             NSWindowStyleMaskTitled | NSWindowStyleMaskClosable,
@@ -64,7 +67,7 @@ class SettingsWindowController(NSObject):
         self._window.setDelegate_(self)
 
         content = self._window.contentView()
-        y = 472
+        y = 572
 
         # --- Shortcut ---
         y -= 30
@@ -85,6 +88,51 @@ class SettingsWindowController(NSObject):
         change_btn.setTarget_(self)
         change_btn.setAction_("changeShortcut:")
         content.addSubview_(change_btn)
+
+        # --- Correction ---
+        y -= 40
+        label = NSTextField.labelWithString_("Correction")
+        label.setFrame_(NSMakeRect(20, y, 360, 20))
+        label.setFont_(NSFont.boldSystemFontOfSize_(13.0))
+        content.addSubview_(label)
+
+        y -= 30
+        self._retract_checkbox = NSButton.alloc().initWithFrame_(NSMakeRect(20, y, 360, 20))
+        self._retract_checkbox.setButtonType_(NSButtonTypeSwitch)
+        self._retract_checkbox.setTitle_("Enable retract last dictation shortcut")
+        self._retract_checkbox.setState_(
+            1 if self._prefs.retract_last_dictation_enabled else 0
+        )
+        self._retract_checkbox.setTarget_(self)
+        self._retract_checkbox.setAction_("retractShortcutToggled:")
+        content.addSubview_(self._retract_checkbox)
+
+        y -= 30
+        self._retract_shortcut_field = (
+            ShortcutField.alloc().initWithFrame_preferences_keycodeKey_modifiersKey_(
+                NSMakeRect(20, y, 280, 24),
+                self._prefs,
+                "retract_hotkey_keycode",
+                "retract_hotkey_modifiers",
+            )
+        )
+        content.addSubview_(self._retract_shortcut_field)
+
+        self._retract_change_btn = NSButton.alloc().initWithFrame_(NSMakeRect(310, y, 80, 24))
+        self._retract_change_btn.setTitle_("Change")
+        self._retract_change_btn.setBezelStyle_(NSBezelStyleRounded)
+        self._retract_change_btn.setTarget_(self)
+        self._retract_change_btn.setAction_("changeRetractShortcut:")
+        content.addSubview_(self._retract_change_btn)
+
+        y -= 20
+        hint = NSTextField.labelWithString_(
+            "방금 붙여넣은 받아쓰기 결과를 Delete로 지웁니다"
+        )
+        hint.setFrame_(NSMakeRect(20, y, 360, 16))
+        hint.setFont_(NSFont.systemFontOfSize_(11.0))
+        hint.setTextColor_(NSColor.secondaryLabelColor())
+        content.addSubview_(hint)
 
         # --- Microphone ---
         y -= 40
@@ -193,6 +241,7 @@ class SettingsWindowController(NSObject):
 
         self._update_permissions()
         self._refresh_login_checkbox()
+        self._refresh_retract_controls()
 
     def _populate_mics(self):
         self._mic_popup.removeAllItems()
@@ -253,6 +302,15 @@ class SettingsWindowController(NSObject):
         self._shortcut_field.startCapture()
 
     @objc.typedSelector(b"v@:@")
+    def changeRetractShortcut_(self, sender):
+        self._retract_shortcut_field.startCapture()
+
+    @objc.typedSelector(b"v@:@")
+    def retractShortcutToggled_(self, sender):
+        self._prefs.retract_last_dictation_enabled = sender.state() == 1
+        self._refresh_retract_controls()
+
+    @objc.typedSelector(b"v@:@")
     def micChanged_(self, sender):
         index = sender.indexOfSelectedItem()
         if index <= 0:
@@ -309,6 +367,15 @@ class SettingsWindowController(NSObject):
         actual_state = launch_at_login.is_registered()
         self._prefs.launch_at_login = actual_state
         self._login_checkbox.setState_(1 if actual_state else 0)
+
+    def _refresh_retract_controls(self):
+        enabled = bool(self._prefs.retract_last_dictation_enabled)
+        if self._retract_checkbox is not None:
+            self._retract_checkbox.setState_(1 if enabled else 0)
+        if self._retract_shortcut_field is not None:
+            self._retract_shortcut_field.setEnabled_(enabled)
+        if self._retract_change_btn is not None:
+            self._retract_change_btn.setEnabled_(enabled)
 
     def _show_launch_at_login_error(self, message):
         alert = NSAlert.alloc().init()
