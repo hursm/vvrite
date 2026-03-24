@@ -22,12 +22,14 @@ from AppKit import (
     NSView,
     NSImage,
     NSImageView,
+    NSPopUpButton,
     NSProgressIndicator,
     NSProgressIndicatorStyleBar,
     NSWorkspace,
 )
 from Foundation import NSLog, NSURL, NSTimer
 
+from vvrite.locales import t, set_locale, SUPPORTED_LANGUAGES
 from vvrite.widgets import ShortcutField
 from vvrite import transcriber
 
@@ -71,6 +73,7 @@ class OnboardingWindowController(NSObject):
         self._download_btn = None
         self._load_retries = 0
         self._local_model_path = None
+        self._lang_popup = None
         self._build_window()
         return self
 
@@ -109,14 +112,14 @@ class OnboardingWindowController(NSObject):
 
         # Back / Next buttons
         self._back_btn = NSButton.alloc().initWithFrame_(NSMakeRect(20, 12, 80, 32))
-        self._back_btn.setTitle_("Back")
+        self._back_btn.setTitle_(t("common.back"))
         self._back_btn.setBezelStyle_(NSBezelStyleRounded)
         self._back_btn.setTarget_(self)
         self._back_btn.setAction_("backClicked:")
         root.addSubview_(self._back_btn)
 
         self._next_btn = NSButton.alloc().initWithFrame_(NSMakeRect(_WIDTH - 120, 12, 100, 32))
-        self._next_btn.setTitle_("Get Started")
+        self._next_btn.setTitle_(t("common.get_started"))
         self._next_btn.setBezelStyle_(NSBezelStyleRounded)
         self._next_btn.setTarget_(self)
         self._next_btn.setAction_("nextClicked:")
@@ -172,11 +175,11 @@ class OnboardingWindowController(NSObject):
 
         # Next button label
         labels = {
-            _WELCOME: "Get Started",
-            _PERMISSIONS: "Next",
-            _HOTKEY: "Next",
-            _RETRACT: "Next",
-            _MODEL: "Done",
+            _WELCOME: t("common.get_started"),
+            _PERMISSIONS: t("common.next"),
+            _HOTKEY: t("common.next"),
+            _RETRACT: t("common.next"),
+            _MODEL: t("common.done"),
         }
         self._next_btn.setTitle_(labels[self._step])
 
@@ -232,12 +235,56 @@ class OnboardingWindowController(NSObject):
         area.addSubview_(title)
 
         # Subtitle
-        subtitle = NSTextField.labelWithString_("Voice to text, instantly.")
+        subtitle = NSTextField.labelWithString_(t("onboarding.welcome.subtitle"))
         subtitle.setFrame_(NSMakeRect(0, 64, w, 20))
         subtitle.setFont_(NSFont.systemFontOfSize_(13.0))
         subtitle.setTextColor_(NSColor.secondaryLabelColor())
         subtitle.setAlignment_(1)
         area.addSubview_(subtitle)
+
+        # Language selector
+        lang_label = NSTextField.labelWithString_(t("onboarding.language.title"))
+        lang_label.setFrame_(NSMakeRect(0, 38, w, 16))
+        lang_label.setFont_(NSFont.systemFontOfSize_(11.0))
+        lang_label.setTextColor_(NSColor.secondaryLabelColor())
+        lang_label.setAlignment_(1)
+        area.addSubview_(lang_label)
+
+        self._lang_popup = NSPopUpButton.alloc().initWithFrame_pullsDown_(
+            NSMakeRect((w - 200) / 2, 12, 200, 24), False
+        )
+        self._lang_popup.addItemWithTitle_(t("common.system_default"))
+        for code, native_name in SUPPORTED_LANGUAGES:
+            self._lang_popup.addItemWithTitle_(native_name)
+
+        # Select current value
+        current = self._prefs.ui_language
+        if current is None:
+            self._lang_popup.selectItemAtIndex_(0)
+        else:
+            for i, (code, _) in enumerate(SUPPORTED_LANGUAGES):
+                if code == current:
+                    self._lang_popup.selectItemAtIndex_(i + 1)
+                    break
+        self._lang_popup.setTarget_(self)
+        self._lang_popup.setAction_("onboardingLanguageChanged:")
+        area.addSubview_(self._lang_popup)
+
+    @objc.typedSelector(b"v@:@")
+    def onboardingLanguageChanged_(self, sender):
+        index = sender.indexOfSelectedItem()
+        if index == 0:
+            self._prefs.ui_language = None
+            from vvrite.locales import resolve_system_locale
+            set_locale(resolve_system_locale())
+        else:
+            code = SUPPORTED_LANGUAGES[index - 1][0]
+            self._prefs.ui_language = code
+            set_locale(code)
+
+        # Refresh persistent buttons and current step
+        self._back_btn.setTitle_(t("common.back"))
+        self._show_step(self._step)
 
     # --- Step 2: Permissions ---
 
@@ -252,19 +299,19 @@ class OnboardingWindowController(NSObject):
         area = self._content_area
         w = _WIDTH
 
-        title = NSTextField.labelWithString_("Permissions")
+        title = NSTextField.labelWithString_(t("onboarding.permissions.title"))
         title.setFrame_(NSMakeRect(0, 170, w, 24))
         title.setFont_(NSFont.boldSystemFontOfSize_(16.0))
         title.setAlignment_(1)
         area.addSubview_(title)
 
         # Accessibility row
-        self._acc_label = NSTextField.labelWithString_("Accessibility")
+        self._acc_label = NSTextField.labelWithString_(t("onboarding.permissions.accessibility"))
         self._acc_label.setFrame_(NSMakeRect(20, 130, 120, 20))
         self._acc_label.setFont_(NSFont.systemFontOfSize_(13.0))
         area.addSubview_(self._acc_label)
 
-        acc_desc = NSTextField.labelWithString_("For global hotkey")
+        acc_desc = NSTextField.labelWithString_(t("onboarding.permissions.accessibility_desc"))
         acc_desc.setFrame_(NSMakeRect(20, 114, 150, 16))
         acc_desc.setFont_(NSFont.systemFontOfSize_(11.0))
         acc_desc.setTextColor_(NSColor.secondaryLabelColor())
@@ -277,19 +324,19 @@ class OnboardingWindowController(NSObject):
         area.addSubview_(self._acc_status)
 
         acc_btn = NSButton.alloc().initWithFrame_(NSMakeRect(320, 120, 60, 24))
-        acc_btn.setTitle_("Open")
+        acc_btn.setTitle_(t("common.open"))
         acc_btn.setBezelStyle_(NSBezelStyleRounded)
         acc_btn.setTarget_(self)
         acc_btn.setAction_("openAccessibility:")
         area.addSubview_(acc_btn)
 
         # Microphone row
-        mic_label = NSTextField.labelWithString_("Microphone")
+        mic_label = NSTextField.labelWithString_(t("onboarding.permissions.microphone"))
         mic_label.setFrame_(NSMakeRect(20, 80, 120, 20))
         mic_label.setFont_(NSFont.systemFontOfSize_(13.0))
         area.addSubview_(mic_label)
 
-        mic_desc = NSTextField.labelWithString_("For voice recording")
+        mic_desc = NSTextField.labelWithString_(t("onboarding.permissions.microphone_desc"))
         mic_desc.setFrame_(NSMakeRect(20, 64, 150, 16))
         mic_desc.setFont_(NSFont.systemFontOfSize_(11.0))
         mic_desc.setTextColor_(NSColor.secondaryLabelColor())
@@ -302,7 +349,7 @@ class OnboardingWindowController(NSObject):
         area.addSubview_(self._mic_status)
 
         mic_btn = NSButton.alloc().initWithFrame_(NSMakeRect(320, 70, 60, 24))
-        mic_btn.setTitle_("Open")
+        mic_btn.setTitle_(t("common.open"))
         mic_btn.setBezelStyle_(NSBezelStyleRounded)
         mic_btn.setTarget_(self)
         mic_btn.setAction_("openMicrophonePrivacy:")
@@ -319,11 +366,11 @@ class OnboardingWindowController(NSObject):
             AVFoundation.AVMediaTypeAudio
         ) == 3
 
-        self._acc_status.setStringValue_("Granted" if ax_ok else "Not Granted")
+        self._acc_status.setStringValue_(t("onboarding.permissions.granted") if ax_ok else t("onboarding.permissions.not_granted"))
         self._acc_status.setTextColor_(
             NSColor.systemGreenColor() if ax_ok else NSColor.systemRedColor()
         )
-        self._mic_status.setStringValue_("Granted" if mic_ok else "Not Granted")
+        self._mic_status.setStringValue_(t("onboarding.permissions.granted") if mic_ok else t("onboarding.permissions.not_granted"))
         self._mic_status.setTextColor_(
             NSColor.systemGreenColor() if mic_ok else NSColor.systemRedColor()
         )
@@ -362,13 +409,13 @@ class OnboardingWindowController(NSObject):
         area = self._content_area
         w = _WIDTH
 
-        title = NSTextField.labelWithString_("Hotkey")
+        title = NSTextField.labelWithString_(t("onboarding.hotkey.title"))
         title.setFrame_(NSMakeRect(0, 170, w, 24))
         title.setFont_(NSFont.boldSystemFontOfSize_(16.0))
         title.setAlignment_(1)
         area.addSubview_(title)
 
-        subtitle = NSTextField.labelWithString_("Press to start/stop recording")
+        subtitle = NSTextField.labelWithString_(t("onboarding.hotkey.subtitle"))
         subtitle.setFrame_(NSMakeRect(0, 150, w, 18))
         subtitle.setFont_(NSFont.systemFontOfSize_(12.0))
         subtitle.setTextColor_(NSColor.secondaryLabelColor())
@@ -383,7 +430,7 @@ class OnboardingWindowController(NSObject):
         area.addSubview_(self._shortcut_field)
 
         change_btn = NSButton.alloc().initWithFrame_(NSMakeRect((w - 80) / 2, 64, 80, 24))
-        change_btn.setTitle_("Change")
+        change_btn.setTitle_(t("common.change"))
         change_btn.setBezelStyle_(NSBezelStyleRounded)
         change_btn.setTarget_(self)
         change_btn.setAction_("changeShortcut:")
@@ -399,15 +446,13 @@ class OnboardingWindowController(NSObject):
         area = self._content_area
         w = _WIDTH
 
-        title = NSTextField.labelWithString_("Quick Correction")
+        title = NSTextField.labelWithString_(t("onboarding.retract.title"))
         title.setFrame_(NSMakeRect(0, 170, w, 24))
         title.setFont_(NSFont.boldSystemFontOfSize_(16.0))
         title.setAlignment_(1)
         area.addSubview_(title)
 
-        subtitle = NSTextField.labelWithString_(
-            "Optionally remove the last dictation with a global shortcut"
-        )
+        subtitle = NSTextField.labelWithString_(t("onboarding.retract.subtitle"))
         subtitle.setFrame_(NSMakeRect(20, 144, w - 40, 32))
         subtitle.setFont_(NSFont.systemFontOfSize_(12.0))
         subtitle.setTextColor_(NSColor.secondaryLabelColor())
@@ -418,7 +463,7 @@ class OnboardingWindowController(NSObject):
             NSMakeRect(60, 100, w - 120, 20)
         )
         self._retract_checkbox.setButtonType_(NSButtonTypeSwitch)
-        self._retract_checkbox.setTitle_("Enable retract last dictation shortcut")
+        self._retract_checkbox.setTitle_(t("onboarding.retract.enable"))
         self._retract_checkbox.setState_(
             1 if self._prefs.retract_last_dictation_enabled else 0
         )
@@ -443,15 +488,13 @@ class OnboardingWindowController(NSObject):
         self._retract_change_btn = NSButton.alloc().initWithFrame_(
             NSMakeRect((w - 80) / 2, 28, 80, 24)
         )
-        self._retract_change_btn.setTitle_("Change")
+        self._retract_change_btn.setTitle_(t("common.change"))
         self._retract_change_btn.setBezelStyle_(NSBezelStyleRounded)
         self._retract_change_btn.setTarget_(self)
         self._retract_change_btn.setAction_("changeRetractShortcut:")
         area.addSubview_(self._retract_change_btn)
 
-        hint = NSTextField.labelWithString_(
-            "Works once for the most recent dictation result"
-        )
+        hint = NSTextField.labelWithString_(t("onboarding.retract.hint"))
         hint.setFrame_(NSMakeRect(20, 8, w - 40, 16))
         hint.setFont_(NSFont.systemFontOfSize_(11.0))
         hint.setTextColor_(NSColor.secondaryLabelColor())
@@ -484,7 +527,7 @@ class OnboardingWindowController(NSObject):
         area = self._content_area
         w = _WIDTH
 
-        title = NSTextField.labelWithString_("Model")
+        title = NSTextField.labelWithString_(t("onboarding.model.title"))
         title.setFrame_(NSMakeRect(0, 170, w, 24))
         title.setFont_(NSFont.boldSystemFontOfSize_(16.0))
         title.setAlignment_(1)
@@ -498,7 +541,7 @@ class OnboardingWindowController(NSObject):
         area.addSubview_(name_label)
 
         # Size label
-        self._size_label = NSTextField.labelWithString_("Checking size...")
+        self._size_label = NSTextField.labelWithString_(t("onboarding.model.checking_size"))
         self._size_label.setFrame_(NSMakeRect(20, 120, w - 40, 18))
         self._size_label.setFont_(NSFont.systemFontOfSize_(11.0))
         self._size_label.setTextColor_(NSColor.secondaryLabelColor())
@@ -537,7 +580,7 @@ class OnboardingWindowController(NSObject):
         self._download_btn = NSButton.alloc().initWithFrame_(
             NSMakeRect((w - 100) / 2, 44, 100, 32)
         )
-        self._download_btn.setTitle_("Download")
+        self._download_btn.setTitle_(t("common.download"))
         self._download_btn.setBezelStyle_(NSBezelStyleRounded)
         self._download_btn.setTarget_(self)
         self._download_btn.setAction_("downloadClicked:")
@@ -547,7 +590,7 @@ class OnboardingWindowController(NSObject):
         self._retry_btn = NSButton.alloc().initWithFrame_(
             NSMakeRect((w - 80) / 2, 44, 80, 32)
         )
-        self._retry_btn.setTitle_("Retry")
+        self._retry_btn.setTitle_(t("common.retry"))
         self._retry_btn.setBezelStyle_(NSBezelStyleRounded)
         self._retry_btn.setTarget_(self)
         self._retry_btn.setAction_("downloadClicked:")
@@ -568,9 +611,9 @@ class OnboardingWindowController(NSObject):
         size = int(size_str)
         if size > 0:
             gb = size / (1024 ** 3)
-            self._size_label.setStringValue_(f"~{gb:.1f} GB download")
+            self._size_label.setStringValue_(t("onboarding.model.size_gb", size_gb=gb))
         else:
-            self._size_label.setStringValue_("Size unknown")
+            self._size_label.setStringValue_(t("onboarding.model.size_unknown"))
 
     @objc.typedSelector(b"v@:@")
     def downloadClicked_(self, sender):
@@ -581,7 +624,7 @@ class OnboardingWindowController(NSObject):
         self._progress_bar.setIndeterminate_(True)
         self._progress_bar.startAnimation_(None)
         self._progress_label.setHidden_(False)
-        self._progress_label.setStringValue_("Downloading...")
+        self._progress_label.setStringValue_(t("onboarding.model.downloading"))
         threading.Thread(target=self._do_download, daemon=True).start()
 
     def _do_download(self):
@@ -611,7 +654,7 @@ class OnboardingWindowController(NSObject):
     @objc.typedSelector(b"v@:@")
     def downloadComplete_(self, local_path):
         self._local_model_path = str(local_path)
-        self._progress_label.setStringValue_("Loading model...")
+        self._progress_label.setStringValue_(t("onboarding.model.loading"))
         threading.Thread(
             target=self._do_load_model,
             args=(self._local_model_path,),
@@ -638,7 +681,7 @@ class OnboardingWindowController(NSObject):
         if self._load_retries >= 3:
             self._progress_bar.setHidden_(True)
             self._progress_label.setHidden_(True)
-            self._error_label.setStringValue_("Model loading failed after 3 attempts")
+            self._error_label.setStringValue_(t("onboarding.model.failed_after_retries"))
             self._error_label.setHidden_(False)
             return
         self._progress_bar.setHidden_(True)
@@ -657,7 +700,7 @@ class OnboardingWindowController(NSObject):
         self._progress_bar.setHidden_(False)
         self._progress_bar.setIndeterminate_(True)
         self._progress_bar.startAnimation_(None)
-        self._progress_label.setStringValue_("Loading model...")
+        self._progress_label.setStringValue_(t("onboarding.model.loading"))
         self._progress_label.setHidden_(False)
         threading.Thread(
             target=self._do_load_model,
@@ -670,5 +713,5 @@ class OnboardingWindowController(NSObject):
         self._progress_bar.setIndeterminate_(False)
         self._progress_bar.stopAnimation_(None)
         self._progress_bar.setDoubleValue_(100.0)
-        self._progress_label.setStringValue_("Model ready!")
+        self._progress_label.setStringValue_(t("onboarding.model.ready"))
         self._update_buttons()
