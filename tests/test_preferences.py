@@ -16,6 +16,8 @@ _TEST_KEYS = [
     "launch_at_login",
     "sound_start",
     "sound_stop",
+    "start_volume",
+    "stop_volume",
     "onboarding_completed",
     "custom_words",
     "auto_update_check",
@@ -198,6 +200,28 @@ class TestPreferences(unittest.TestCase):
         prefs = Preferences()
         prefs.last_update_check = 1234567890.0
         self.assertAlmostEqual(prefs.last_update_check, 1234567890.0)
+
+    def test_default_start_volume(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        self.assertEqual(prefs.start_volume, 1.0)
+
+    def test_default_stop_volume(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        self.assertEqual(prefs.stop_volume, 1.0)
+
+    def test_set_start_volume(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        prefs.start_volume = 0.5
+        self.assertAlmostEqual(prefs.start_volume, 0.5)
+
+    def test_set_stop_volume(self):
+        from vvrite.preferences import Preferences
+        prefs = Preferences()
+        prefs.stop_volume = 0.3
+        self.assertAlmostEqual(prefs.stop_volume, 0.3)
 
 
 if __name__ == "__main__":

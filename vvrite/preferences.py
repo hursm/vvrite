@@ -24,6 +24,8 @@ _DEFAULTS = {
     "launch_at_login": False,
     "sound_start": "Glass",
     "sound_stop": "Purr",
+    "start_volume": 1.0,
+    "stop_volume": 1.0,
     "onboarding_completed": False,
     "custom_words": "",
     "auto_update_check": True,
@@ -194,6 +196,22 @@ class Preferences:
     @sound_stop.setter
     def sound_stop(self, value: str):
         self._set("sound_stop", value)
+
+    @property
+    def start_volume(self) -> float:
+        return float(self._get("start_volume"))
+
+    @start_volume.setter
+    def start_volume(self, value: float):
+        self._set("start_volume", value)
+
+    @property
+    def stop_volume(self) -> float:
+        return float(self._get("stop_volume"))
+
+    @stop_volume.setter
+    def stop_volume(self, value: float):
+        self._set("stop_volume", value)
 
     @property
     def custom_words(self) -> str:
